@@ -118,6 +118,7 @@ add_executable(etp
     src/enemy.cpp
     src/boss.cpp
     src/sniper.cpp
+    src/ar.cpp
     src/game.cpp
     ${APP_ICON_ICNS}
     ${APP_ICON_RC}

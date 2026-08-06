@@ -11,3 +11,12 @@
 inline std::string AssetPath(const char* relativePath) {
     return std::string(GetApplicationDirectory()) + "assets/" + relativePath;
 }
+
+// Builds an absolute path next to the running executable/app bundle for
+// persisted save data (e.g. high score). Reuses GetApplicationDirectory(),
+// the same function AssetPath() already relies on successfully. Note: if
+// this project is ever code-signed and distributed as a read-only .app,
+// this will need to move to a real per-user writable directory instead.
+inline std::string SavePath(const char* relativePath) {
+    return std::string(GetApplicationDirectory()) + relativePath;
+}

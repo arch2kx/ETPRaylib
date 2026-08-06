@@ -5,20 +5,22 @@
 #include <ctime>
 #include <cmath>
 
-Game::Game(DifficultySettings settings)
-    : score(0), difficulty(1.0f), spawnTimer(0.0f),
+Game::Game(DifficultySettings settings, bool endless)
+    : score(0), killCount(0), loopCount(0), endlessMode(endless),
+      difficulty(1.0f), spawnTimer(0.0f),
       spawnDelay(1.5f * settings.spawnDelayMult),
       bossSpawned(false), gameOver(false), gameWon(false),
-      phase2Active(false), missedEnemyCount(0), settings(settings) {
+      phase2Active(false), phase3Active(false), missedEnemyCount(0), settings(settings) {
     srand((unsigned)time(nullptr));
 
-    bgTexture         = LoadTexture(AssetPath("background-trinity.png").c_str());
-    playerTex         = LoadTexture(AssetPath("mika-player.png").c_str());
-    enemyTex          = LoadTexture(AssetPath("gehenna-mob-chan-enemy.png").c_str());
-    bossTex           = LoadTexture(AssetPath("makoto_boss.png").c_str());
-    friendlyBulletTex = LoadTexture(AssetPath("bullet-friendly.png").c_str());
-    enemyBulletTex    = LoadTexture(AssetPath("bullet-enemy.png").c_str());
-    sniperTex         = LoadTexture(AssetPath("junko_sniper.png").c_str());
+    bgTexture         = LoadTexture(AssetPath("backgroundGehenna.png").c_str());
+    playerTex         = LoadTexture(AssetPath("mikaPlayer.png").c_str());
+    enemyTex          = LoadTexture(AssetPath("gehennaMobChanEnemy.png").c_str());
+    bossTex           = LoadTexture(AssetPath("makotoBoss.png").c_str());
+    friendlyBulletTex = LoadTexture(AssetPath("bulletFriendly.png").c_str());
+    enemyBulletTex    = LoadTexture(AssetPath("bulletEnemy.png").c_str());
+    sniperTex         = LoadTexture(AssetPath("harunaSniper.png").c_str());
+    arTex             = LoadTexture(AssetPath("junkoAR.png").c_str());
     font              = LoadFontEx(AssetPath("PressStart2P-Regular.ttf").c_str(), 14, nullptr, 0);
 
     player = Player(playerTex, friendlyBulletTex, settings.playerSpeedMult);
@@ -28,6 +30,7 @@ Game::~Game() {
     UnloadTexture(bgTexture);
     UnloadTexture(playerTex);
     UnloadTexture(enemyTex);
+    UnloadTexture(arTex);
     UnloadTexture(bossTex);
     UnloadTexture(friendlyBulletTex);
     UnloadTexture(enemyBulletTex);
@@ -72,6 +75,13 @@ void Game::Update(float dt) {
         for (auto& s : snipers) s.Update(dt, enemyBullets, pcx, pcy);
     }
 
+    if (phase3Active) {
+        Rectangle pr = player.GetRect();
+        float pcx = pr.x + pr.width  / 2.0f;
+        float pcy = pr.y + pr.height / 2.0f;
+        for (auto& s : ar) s.Update(dt, enemyBullets, pcx, pcy);
+    }
+
     for (auto& b : playerBullets) b.Update(dt);
     for (auto& b : enemyBullets)  b.Update(dt);
 
@@ -100,7 +110,25 @@ void Game::Update(float dt) {
         snipers.erase(std::remove_if(snipers.begin(), snipers.end(),
             [](const Sniper& s){ return !s.IsActive(); }),
             snipers.end());
-        if (snipers.empty()) gameWon = true;
+        if (snipers.empty()) {
+            phase2Active = false;
+            if (settings.hasPhase3) {
+                SpawnARs();
+                phase3Active = true;
+            } else {
+                EndCycleOrLoop();
+            }
+        }
+    }
+
+    if (phase3Active) {
+        ar.erase(std::remove_if(ar.begin(), ar.end(),
+            [](const AR& s){ return !s.IsActive(); }),
+            ar.end());
+        if (ar.empty()) {
+            phase3Active = false;
+            EndCycleOrLoop();
+        }
     }
 }
 
@@ -116,6 +144,7 @@ void Game::CheckCollisions() {
                 bullet.SetInactive();
                 enemy.SetInactive();
                 score += 10;
+                killCount++;
             }
         }
 
@@ -125,12 +154,16 @@ void Game::CheckCollisions() {
             score += 10;
             if (boss->IsDead()) {
                 score += 500;
+                killCount++;
                 boss.reset();
                 if (settings.hasPhase2) {
                     SpawnSnipers();
                     phase2Active = true;
+                } else if (settings.hasPhase3) {
+                    SpawnARs();
+                    phase3Active = true;
                 } else {
-                    gameWon = true;
+                    EndCycleOrLoop();
                 }
             }
         }
@@ -146,6 +179,24 @@ void Game::CheckCollisions() {
                     if (sniper.health <= 0) {
                         sniper.SetInactive();
                         score += 50;
+                        killCount++;
+                    }
+                }
+            }
+        }
+
+        // Player bullets vs AR
+        if (bullet.IsActive()) {
+            for (auto& gun : ar) {
+                if (!bullet.IsActive()) break;
+                if (gun.IsActive() && CheckCollisionRecs(br, gun.GetRect())) {
+                    bullet.SetInactive();
+                    gun.health--;
+                    score += 10;
+                    if (gun.health <= 0) {
+                        gun.SetInactive();
+                        score += 50;
+                        killCount++;
                     }
                 }
             }
@@ -169,10 +220,41 @@ void Game::SpawnEnemy() {
 }
 
 void Game::SpawnSnipers() {
-    // 3 Junkos spread across the top
+    // 3 Harunas spawn on top
     snipers.emplace_back(150.0f, sniperTex, enemyBulletTex);
     snipers.emplace_back(370.0f, sniperTex, enemyBulletTex);
     snipers.emplace_back(590.0f, sniperTex, enemyBulletTex);
+}
+
+void Game::SpawnARs() {
+    // 5 junkos spawn on top
+    ar.emplace_back(118.0f, arTex, enemyBulletTex);
+    ar.emplace_back(252.0f, arTex, enemyBulletTex);
+    ar.emplace_back(370.0f, arTex, enemyBulletTex);
+    ar.emplace_back(504.0f, arTex, enemyBulletTex);
+    ar.emplace_back(590.0f, arTex, enemyBulletTex);
+}
+
+void Game::EndCycleOrLoop() {
+    if (!endlessMode) {
+        gameWon = true;
+        return;
+    }
+
+    // Endless: scale stats up and loop back into another boss wave instead
+    // of ending the run. Score/kills carry over — only the run state resets.
+    loopCount++;
+    settings.bossHP           = (int)(settings.bossHP * 1.15f);
+    settings.bossBulletSpeed *= 1.05f;
+    settings.enemySpeedMult  *= 1.05f;
+    settings.difficultyRamp  *= 1.05f;
+    settings.spawnDelayMult   = fmaxf(0.3f, settings.spawnDelayMult * 0.95f);
+    settings.bossScoreThresh += 300;  // require more score before the next boss triggers
+
+    bossSpawned = false;
+    difficulty  = 1.0f;
+    spawnTimer  = 0.0f;
+    spawnDelay  = 1.5f * settings.spawnDelayMult;
 }
 
 void Game::Draw() const {
@@ -182,6 +264,7 @@ void Game::Draw() const {
 
     for (const auto& e : enemies)       e.Draw();
     for (const auto& s : snipers)       s.Draw();
+    for (const auto& g : ar)            g.Draw();
     if (boss) { boss->Draw(); boss->DrawHealthBar(); }
     for (const auto& b : playerBullets) b.Draw();
     for (const auto& b : enemyBullets)  b.Draw();
@@ -191,19 +274,29 @@ void Game::Draw() const {
 }
 
 void Game::DrawScore() const {
-    DrawTextEx(font, TextFormat("G*HENNANS ELIMINATED: %d", score),
+    DrawTextEx(font, TextFormat("SCORE: %d", score),
                Vector2{10, 10}, 14, 1, WHITE);
+    DrawTextEx(font, TextFormat("G*HENNANS ELIMINATED: %d", killCount),
+               Vector2{10, 30}, 14, 1, WHITE);
+    if (endlessMode) {
+        DrawTextEx(font, TextFormat("WAVE: %d", loopCount + 1),
+                   Vector2{10, 50}, 14, 1, WHITE);
+    }
 }
 
 bool Game::IsGameOver() const { return gameOver; }
 bool Game::IsGameWon()  const { return gameWon; }
+int  Game::GetScore()   const { return score; }
 
-void Game::Reset(DifficultySettings newSettings) {
+void Game::Reset(DifficultySettings newSettings, bool endless) {
     enemies.clear();
     playerBullets.clear();
     enemyBullets.clear();
     boss.reset();
     score       = 0;
+    killCount   = 0;
+    loopCount   = 0;
+    endlessMode = endless;
     difficulty  = 1.0f;
     spawnTimer  = 0.0f;
     spawnDelay  = 1.5f * newSettings.spawnDelayMult;
@@ -211,8 +304,10 @@ void Game::Reset(DifficultySettings newSettings) {
     gameOver         = false;
     gameWon          = false;
     phase2Active     = false;
+    phase3Active     = false;
     missedEnemyCount = 0;
     snipers.clear();
+    ar.clear();
     settings         = newSettings;
     player      = Player(playerTex, friendlyBulletTex, newSettings.playerSpeedMult);
 }
