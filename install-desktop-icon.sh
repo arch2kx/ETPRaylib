@@ -20,7 +20,7 @@ BINARY="${BUILD_DIR}/ETP"
 ICON="${SCRIPT_DIR}/assets/etp_cpp.png"
 
 MENU_DIR="${HOME}/.local/share/applications"
-MENU_FILE="${MENU_DIR}/etp.desktop"
+MENU_FILE="${MENU_DIR}/ETP.desktop"
 
 # Respect the user's actual (possibly localized/relocated) Desktop folder
 if command -v xdg-user-dir >/dev/null 2>&1; then
@@ -28,7 +28,7 @@ if command -v xdg-user-dir >/dev/null 2>&1; then
 else
     DESKTOP_DIR="${HOME}/Desktop"
 fi
-DESKTOP_ICON_FILE="${DESKTOP_DIR}/etp.desktop"
+DESKTOP_ICON_FILE="${DESKTOP_DIR}/ETP.desktop"
 
 write_desktop_entry() {
     local target_file="$1"
