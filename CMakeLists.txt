@@ -157,6 +157,11 @@ endif()
 # Hide the console window on Windows release builds
 if(WIN32)
     set_target_properties(etp PROPERTIES WIN32_EXECUTABLE TRUE)
+    if(MSVC)
+        # WIN32_EXECUTABLE makes MSVC expect a WinMain entry point, but we
+        # use a standard main(). Point the linker at mainCRTStartup instead.
+        set_target_properties(etp PROPERTIES LINK_FLAGS "/ENTRY:mainCRTStartup")
+    endif()
 endif()
 
 # Copy assets next to the binary so relative paths work on all platforms
