@@ -1,4 +1,5 @@
 #include "game.hpp"
+#include "paths.hpp"
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
@@ -11,14 +12,14 @@ Game::Game(DifficultySettings settings)
       phase2Active(false), missedEnemyCount(0), settings(settings) {
     srand((unsigned)time(nullptr));
 
-    bgTexture         = LoadTexture("assets/background-trinity.png");
-    playerTex         = LoadTexture("assets/mika-player.png");
-    enemyTex          = LoadTexture("assets/gehenna-mob-chan-enemy.png");
-    bossTex           = LoadTexture("assets/makoto_boss.png");
-    friendlyBulletTex = LoadTexture("assets/bullet-friendly.png");
-    enemyBulletTex    = LoadTexture("assets/bullet-enemy.png");
-    sniperTex         = LoadTexture("assets/junko_sniper.png");
-    font              = LoadFontEx("assets/PressStart2P-Regular.ttf", 14, nullptr, 0);
+    bgTexture         = LoadTexture(AssetPath("background-trinity.png").c_str());
+    playerTex         = LoadTexture(AssetPath("mika-player.png").c_str());
+    enemyTex          = LoadTexture(AssetPath("gehenna-mob-chan-enemy.png").c_str());
+    bossTex           = LoadTexture(AssetPath("makoto_boss.png").c_str());
+    friendlyBulletTex = LoadTexture(AssetPath("bullet-friendly.png").c_str());
+    enemyBulletTex    = LoadTexture(AssetPath("bullet-enemy.png").c_str());
+    sniperTex         = LoadTexture(AssetPath("junko_sniper.png").c_str());
+    font              = LoadFontEx(AssetPath("PressStart2P-Regular.ttf").c_str(), 14, nullptr, 0);
 
     player = Player(playerTex, friendlyBulletTex, settings.playerSpeedMult);
 }

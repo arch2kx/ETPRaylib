@@ -2,6 +2,7 @@
 #include <cmath>
 #include "game.hpp"
 #include "difficulty.hpp"
+#include "paths.hpp"
 
 typedef enum GameScreen { LOGO = 0, TITLE, DIFFICULTY_SELECT, GAMEPLAY, ENDING, WIN } GameScreen;
 
@@ -14,14 +15,23 @@ int main() {
     const int screenHeight = 600;
 
     InitWindow(screenWidth, screenHeight, "Eden Treaty Pandemonium C++");
+
+    // Window/taskbar/dock icon (shown while the game is running)
+    Image windowIcon = LoadImage(AssetPath("etp_cpp.png").c_str());
+    if (windowIcon.data != nullptr) {
+        ImageFormat(&windowIcon, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+        SetWindowIcon(windowIcon);
+        UnloadImage(windowIcon);
+    }
+
     SetTargetFPS(60);
 
     // Braces ensure Game and textures are destroyed before CloseWindow()
     {
-    Texture2D background  = LoadTexture("assets/background-trinity.png");
-    Texture2D bgSelect    = LoadTexture("assets/background-select.png");
-    Texture2D titleScreen = LoadTexture("assets/titlescreen.png");
-    Font font = LoadFontEx("assets/PressStart2P-Regular.ttf", 20, nullptr, 0);
+    Texture2D background  = LoadTexture(AssetPath("background-trinity.png").c_str());
+    Texture2D bgSelect    = LoadTexture(AssetPath("background-select.png").c_str());
+    Texture2D titleScreen = LoadTexture(AssetPath("titlescreen.png").c_str());
+    Font font = LoadFontEx(AssetPath("PressStart2P-Regular.ttf").c_str(), 20, nullptr, 0);
     Game game;
 
     GameScreen currentScreen = LOGO;

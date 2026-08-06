@@ -7,4 +7,6 @@ Makefile
 *.d
 etp
 etp.exe
+ETP
+ETP.exe
 _deps/
