@@ -16,7 +16,7 @@ public:
     Rectangle GetRect() const;
 
 private:
-    Texture2D texture;   // handle only — Game owns the GPU resource
+    Texture2D texture;   // handle only, the game owns the GPU resources.
     float x, y;
     float direction;     // radians; 0 = right, -PI/2 = up, PI/2 = down
     float speed;         // pixels per second

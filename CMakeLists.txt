@@ -30,13 +30,13 @@ endif()
 
 FetchContent_MakeAvailable(raylib)
 
-# --- macOS app icon: build a .icns from assets/etp_cpp.png -------------
+# --- macOS app icon: build a .icns from assets/mikaIcon.png -------------
 # Runs at configure time using the built-in sips/iconutil tools. Delete
 # build/icon.icns (or the whole build dir) and re-run cmake to regenerate
 # it after changing the source image.
 set(APP_ICON_ICNS "")
 if(APPLE)
-    set(ICON_SOURCE ${CMAKE_SOURCE_DIR}/assets/etp_cpp.png)
+    set(ICON_SOURCE ${CMAKE_SOURCE_DIR}/assets/mikaIcon.png)
     set(ICONSET_DIR ${CMAKE_BINARY_DIR}/AppIcon.iconset)
     set(ICNS_FILE   ${CMAKE_BINARY_DIR}/icon.icns)
 
@@ -67,21 +67,21 @@ if(APPLE)
     endif()
 endif()
 
-# --- Windows app icon: build a .ico from assets/etp_cpp.png ------------
+# --- Windows app icon: build a .ico from assets/mikaIcon.png ------------
 # Requires ImageMagick's "magick" (or legacy "convert") on PATH. If it's
-# not found, drop your own multi-resolution assets/etp_cpp.ico in place
+# not found, drop your own multi-resolution assets/mikaIcon.ico in place
 # and this will pick it up instead. Re-run cmake after changing either.
 set(APP_ICON_RC "")
 if(WIN32)
-    set(ICON_PNG_SOURCE ${CMAKE_SOURCE_DIR}/assets/etp_cpp.png)
-    set(ICON_ICO_OVERRIDE ${CMAKE_SOURCE_DIR}/assets/etp_cpp.ico)
+    set(ICON_PNG_SOURCE ${CMAKE_SOURCE_DIR}/assets/mikaIcon.png)
+    set(ICON_ICO_OVERRIDE ${CMAKE_SOURCE_DIR}/assets/mikaIcon.ico)
     set(ICO_FILE ${CMAKE_BINARY_DIR}/icon.ico)
     set(RC_FILE  ${CMAKE_BINARY_DIR}/icon.rc)
 
     if(NOT EXISTS ${ICO_FILE})
         if(EXISTS ${ICON_ICO_OVERRIDE})
             file(COPY ${ICON_ICO_OVERRIDE} DESTINATION ${CMAKE_BINARY_DIR})
-            file(RENAME ${CMAKE_BINARY_DIR}/etp_cpp.ico ${ICO_FILE})
+            file(RENAME ${CMAKE_BINARY_DIR}/mikaIcon.ico ${ICO_FILE})
         elseif(EXISTS ${ICON_PNG_SOURCE})
             find_program(MAGICK_EXE NAMES magick convert)
             if(MAGICK_EXE)
@@ -100,7 +100,7 @@ if(WIN32)
             else()
                 message(STATUS "ImageMagick not found - skipping .ico generation. "
                                 "Install ImageMagick, or place a ready-made icon at "
-                                "assets/etp_cpp.ico, then re-run cmake.")
+                                "assets/mikaIcon.ico, then re-run cmake.")
             endif()
         endif()
     endif()

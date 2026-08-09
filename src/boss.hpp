@@ -30,7 +30,10 @@ private:
     bool  aimedShot;
     bool  burst;
     float burstTimer;
+    bool  spiralEnabled;
+    float spiralAngle;  // rotating start-offset for the ring pattern, degrees
 
     void Fire(std::vector<Bullet>& enemyBullets,
               float playerX, float playerY);
+    void FireSpiral(std::vector<Bullet>& enemyBullets);
 };

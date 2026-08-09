@@ -1,4 +1,5 @@
 #include "bullet.hpp"
+#include "visuals.hpp"
 #include <cmath>
 
 Bullet::Bullet(float x, float y, float direction, float speed,
@@ -12,17 +13,19 @@ void Bullet::Update(float dt) {
 }
 
 void Bullet::Draw() const {
-    DrawTexture(texture, (int)x, (int)y, WHITE);
+    Rectangle src  = { 0, 0, (float)texture.width, (float)texture.height };
+    Rectangle dest = { x, y, BULLET_SIZE, BULLET_SIZE };
+    DrawTexturePro(texture, src, dest, Vector2{0, 0}, 0.0f, WHITE);
 }
 
 bool Bullet::IsOffscreen() const {
-    return y > 600 || y + texture.height < 0 ||
-           x > 800 || x + texture.width  < 0;
+    return y > 600 || y + BULLET_SIZE < 0 ||
+           x > 800 || x + BULLET_SIZE < 0;
 }
 
 bool Bullet::IsActive() const  { return active; }
 void Bullet::SetInactive()     { active = false; }
 
 Rectangle Bullet::GetRect() const {
-    return Rectangle{ x, y, (float)texture.width, (float)texture.height };
+    return Rectangle{ x, y, BULLET_SIZE, BULLET_SIZE };
 }

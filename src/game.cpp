@@ -21,9 +21,10 @@ Game::Game(DifficultySettings settings, bool endless)
     enemyBulletTex    = LoadTexture(AssetPath("bulletEnemy.png").c_str());
     sniperTex         = LoadTexture(AssetPath("harunaSniper.png").c_str());
     arTex             = LoadTexture(AssetPath("junkoAR.png").c_str());
-    font              = LoadFontEx(AssetPath("PressStart2P-Regular.ttf").c_str(), 14, nullptr, 0);
+    healthBarTex      = LoadTexture(AssetPath("mikaBowHP.png").c_str());
+    font              = LoadFontEx(AssetPath("PressStart2P-Regular.ttf").c_str(), 18, nullptr, 0);
 
-    player = Player(playerTex, friendlyBulletTex, settings.playerSpeedMult);
+    player = Player(playerTex, friendlyBulletTex, healthBarTex, settings.playerSpeedMult, settings.playerBulletCount);
 }
 
 Game::~Game() {
@@ -35,8 +36,12 @@ Game::~Game() {
     UnloadTexture(friendlyBulletTex);
     UnloadTexture(enemyBulletTex);
     UnloadTexture(sniperTex);
+    UnloadTexture(healthBarTex);
     UnloadFont(font);
 }
+
+// Custom color(s)
+constexpr Color CUSTOM_TEXT_BLUE = { 37, 42, 74, 255 };
 
 void Game::Update(float dt) {
     if (gameOver || gameWon) return;
@@ -53,7 +58,8 @@ void Game::Update(float dt) {
             spawnDelay  = fmaxf(0.3f, 1.5f * settings.spawnDelayMult - difficulty * 0.1f);
 
             if (score >= settings.bossScoreThresh || difficulty >= 5.0f) {
-                boss = std::make_unique<Boss>(bossTex, enemyBulletTex, settings);
+                SpawnSnipers();
+                phase2Active = true;
                 bossSpawned = true;
             }
         }
@@ -79,7 +85,15 @@ void Game::Update(float dt) {
         Rectangle pr = player.GetRect();
         float pcx = pr.x + pr.width  / 2.0f;
         float pcy = pr.y + pr.height / 2.0f;
-        for (auto& s : ar) s.Update(dt, enemyBullets, pcx, pcy);
+
+        // Extreme: once only one Junko unit is left standing, it fires
+        // much faster, a tension spike instead of the phase just diminishing.
+        int aliveCount = 0;
+        for (auto& s : ar) if (s.IsActive()) aliveCount++;
+        for (auto& s : ar) {
+            s.SetRage(settings.arRageEnabled && aliveCount == 1 && s.IsActive());
+            s.Update(dt, enemyBullets, pcx, pcy);
+        }
     }
 
     for (auto& b : playerBullets) b.Update(dt);
@@ -127,7 +141,7 @@ void Game::Update(float dt) {
             ar.end());
         if (ar.empty()) {
             phase3Active = false;
-            EndCycleOrLoop();
+            boss = std::make_unique<Boss>(bossTex, enemyBulletTex, settings);
         }
     }
 }
@@ -156,15 +170,7 @@ void Game::CheckCollisions() {
                 score += 500;
                 killCount++;
                 boss.reset();
-                if (settings.hasPhase2) {
-                    SpawnSnipers();
-                    phase2Active = true;
-                } else if (settings.hasPhase3) {
-                    SpawnARs();
-                    phase3Active = true;
-                } else {
-                    EndCycleOrLoop();
-                }
+                EndCycleOrLoop();
             }
         }
 
@@ -192,7 +198,7 @@ void Game::CheckCollisions() {
                 if (gun.IsActive() && CheckCollisionRecs(br, gun.GetRect())) {
                     bullet.SetInactive();
                     gun.health--;
-                    score += 10;
+                    score += 14;
                     if (gun.health <= 0) {
                         gun.SetInactive();
                         score += 50;
@@ -220,19 +226,24 @@ void Game::SpawnEnemy() {
 }
 
 void Game::SpawnSnipers() {
-    // 3 Harunas spawn on top
-    snipers.emplace_back(150.0f, sniperTex, enemyBulletTex);
-    snipers.emplace_back(370.0f, sniperTex, enemyBulletTex);
-    snipers.emplace_back(590.0f, sniperTex, enemyBulletTex);
+    // Count/HP/fire-rate/spray all now come from DifficultySettings, evenly
+    // spaced across the playfield instead of fixed hardcoded positions.
+    int count = settings.sniperCount;
+    const float margin = 100.0f, usable = 800.0f - 2.0f * margin;
+    for (int i = 0; i < count; i++) {
+        float px = (count == 1) ? 400.0f : margin + usable * ((float)i / (count - 1));
+        snipers.emplace_back(px, sniperTex, enemyBulletTex, settings.sniperHP,
+                              settings.sniperCooldown, settings.sniperSpray);
+    }
 }
 
 void Game::SpawnARs() {
-    // 5 junkos spawn on top
-    ar.emplace_back(118.0f, arTex, enemyBulletTex);
-    ar.emplace_back(252.0f, arTex, enemyBulletTex);
-    ar.emplace_back(370.0f, arTex, enemyBulletTex);
-    ar.emplace_back(504.0f, arTex, enemyBulletTex);
-    ar.emplace_back(590.0f, arTex, enemyBulletTex);
+    int count = settings.arCount;
+    const float margin = 100.0f, usable = 800.0f - 2.0f * margin;
+    for (int i = 0; i < count; i++) {
+        float px = (count == 1) ? 400.0f : margin + usable * ((float)i / (count - 1));
+        ar.emplace_back(px, arTex, enemyBulletTex, settings.arHP, settings.arCooldown);
+    }
 }
 
 void Game::EndCycleOrLoop() {
@@ -242,7 +253,7 @@ void Game::EndCycleOrLoop() {
     }
 
     // Endless: scale stats up and loop back into another boss wave instead
-    // of ending the run. Score/kills carry over — only the run state resets.
+    // of ending the run. Score/kills carry over, only the run state resets.
     loopCount++;
     settings.bossHP           = (int)(settings.bossHP * 1.15f);
     settings.bossBulletSpeed *= 1.05f;
@@ -250,6 +261,21 @@ void Game::EndCycleOrLoop() {
     settings.difficultyRamp  *= 1.05f;
     settings.spawnDelayMult   = fmaxf(0.3f, settings.spawnDelayMult * 0.95f);
     settings.bossScoreThresh += 300;  // require more score before the next boss triggers
+    settings.sniperHP        += 1;    // Haruna/Junko keep pace with the boss across loops too
+    settings.arHP             += 1;
+    settings.sniperCooldown   = fmaxf(0.6f, settings.sniperCooldown * 0.95f);
+    settings.arCooldown       = fmaxf(0.6f, settings.arCooldown * 0.95f);
+    settings.bossShootCooldown = fmaxf(0.3f, settings.bossShootCooldown * 1.4f);
+
+    // Content progression: Unlock boss attack patterns progressively as loops go.
+    // Avoids the issue of repetitive gameplay, who knows?
+    // 
+    // I'm might be such a Touhou larper :)
+    if (loopCount >= 2) settings.bossAimedShot     = true;
+    if (loopCount >= 4) settings.bossBurst         = true;
+    if (loopCount >= 3) settings.sniperSpray       = true;
+    if (loopCount >= 3) settings.arRageEnabled     = true;
+    if (loopCount >= 5) settings.bossSpiralEnabled = true;  // unlocks going into WAVE 6
 
     bossSpawned = false;
     difficulty  = 1.0f;
@@ -273,14 +299,15 @@ void Game::Draw() const {
     player.DrawHealthBar();
 }
 
+// Draw the score in gameplay section
 void Game::DrawScore() const {
     DrawTextEx(font, TextFormat("SCORE: %d", score),
-               Vector2{10, 10}, 14, 1, WHITE);
+               Vector2{10, 10}, 18, 1, CUSTOM_TEXT_BLUE);
     DrawTextEx(font, TextFormat("G*HENNANS ELIMINATED: %d", killCount),
-               Vector2{10, 30}, 14, 1, WHITE);
+               Vector2{10, 34}, 18, 1, CUSTOM_TEXT_BLUE);
     if (endlessMode) {
         DrawTextEx(font, TextFormat("WAVE: %d", loopCount + 1),
-                   Vector2{10, 50}, 14, 1, WHITE);
+                   Vector2{10, 58}, 18, 1, CUSTOM_TEXT_BLUE);
     }
 }
 
@@ -309,5 +336,5 @@ void Game::Reset(DifficultySettings newSettings, bool endless) {
     snipers.clear();
     ar.clear();
     settings         = newSettings;
-    player      = Player(playerTex, friendlyBulletTex, newSettings.playerSpeedMult);
+    player      = Player(playerTex, friendlyBulletTex, healthBarTex, newSettings.playerSpeedMult, newSettings.playerBulletCount);
 }

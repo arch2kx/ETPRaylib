@@ -1,4 +1,5 @@
 #include "enemy.hpp"
+#include "visuals.hpp"
 #include <cmath>
 #include <cstdlib>
 
@@ -42,8 +43,8 @@ void Enemy::Update(float dt, std::vector<Bullet>& enemyBullets) {
 }
 
 void Enemy::Fire(std::vector<Bullet>& enemyBullets) {
-    float cx  = x + texture.width  / 2.0f;
-    float cy  = y + texture.height;
+    float cx  = x + SPRITE_SIZE / 2.0f;
+    float cy  = y + SPRITE_SIZE;
     const float spd = 250.0f;
 
     // DEG2RAD is defined by raylib.h
@@ -60,7 +61,6 @@ void Enemy::Fire(std::vector<Bullet>& enemyBullets) {
                                       BulletType::ENEMY, bulletTexture);
     } else {
         // Spiral burst: base angle rotates over time
-        // Python: (get_ticks()/10) % 360 → GetTime()*100 degrees
         float baseAngle = fmodf(GetTime() * 100.0f, 360.0f);
         for (int i = 0; i < 8; i++) {
             float angle = (baseAngle + i * 45.0f) * DEG2RAD;
@@ -71,7 +71,9 @@ void Enemy::Fire(std::vector<Bullet>& enemyBullets) {
 }
 
 void Enemy::Draw() const {
-    DrawTexture(texture, (int)x, (int)y, WHITE);
+    Rectangle src  = { 0, 0, (float)texture.width, (float)texture.height };
+    Rectangle dest = { x, y, SPRITE_SIZE, SPRITE_SIZE };
+    DrawTexturePro(texture, src, dest, Vector2{0, 0}, 0.0f, WHITE);
 }
 
 bool Enemy::IsOffscreen() const { return y > 600; }
@@ -79,5 +81,5 @@ bool Enemy::IsActive()    const { return active; }
 void Enemy::SetInactive()       { active = false; }
 
 Rectangle Enemy::GetRect() const {
-    return Rectangle{ x, y, (float)texture.width, (float)texture.height };
+    return Rectangle{ x, y, SPRITE_SIZE, SPRITE_SIZE };
 }

@@ -32,6 +32,7 @@ private:
     Texture2D enemyBulletTex;
     Texture2D sniperTex;
     Texture2D arTex;
+    Texture2D healthBarTex;
     Font      font;
 
     Player              player;

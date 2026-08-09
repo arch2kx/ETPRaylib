@@ -17,7 +17,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
 BINARY="${BUILD_DIR}/ETP"
-ICON="${SCRIPT_DIR}/assets/etp_cpp.png"
+ICON="${SCRIPT_DIR}/assets/mikaIcon.png"
 
 MENU_DIR="${HOME}/.local/share/applications"
 MENU_FILE="${MENU_DIR}/ETP.desktop"

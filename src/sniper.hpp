@@ -5,7 +5,7 @@
 
 class Sniper {
 public:
-    Sniper(float x, Texture2D tex, Texture2D bulletTex);
+    Sniper(float x, Texture2D tex, Texture2D bulletTex, int hp = 3, float shotCooldown = 2.5f, bool spray = false);
 
     void Update(float dt, std::vector<Bullet>& enemyBullets, float playerX, float playerY);
     void Draw() const;
@@ -31,5 +31,10 @@ private:
     bool  aiming;
     float aimTargetX, aimTargetY;  // where we locked onto when aiming started
 
+    bool  sprayEnabled;  // Hard+: fires an unaimed 3-round spray between aimed shots
+    float sprayTimer;
+    float sprayInterval;
+
     void Fire(std::vector<Bullet>& enemyBullets);
+    void FireSpray(std::vector<Bullet>& enemyBullets);
 };

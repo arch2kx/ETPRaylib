@@ -6,7 +6,7 @@
 class Player {
 public:
     Player();
-    Player(Texture2D tex, Texture2D bulletTex, float speedMult = 1.0f);
+    Player(Texture2D tex, Texture2D bulletTex, Texture2D healthTex, float speedMult = 1.0f, int bulletCount = 1);
 
     void Update(float dt, std::vector<Bullet>& playerBullets);
     void Draw() const;
@@ -21,8 +21,10 @@ public:
 private:
     Texture2D texture;
     Texture2D bulletTexture;
+    Texture2D healthBarTex;
     float x, y;
     float speed;
     float shootTimer;
     float shootCooldown;
+    int   bulletCount; // Number of bullets fired per shot, fanned out if >1 (from DifficultySettings)
 };
