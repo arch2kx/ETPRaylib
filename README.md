@@ -91,7 +91,7 @@ cmake --build build
 ## Notes
 I made this program primarily to learn how game programming works with different languages. I had an original pygame version but this one is much better. Also, I updated this game to be cross-platform and less confusing, hooray!
 
-# Attribution
+## Attribution
 Most assets are my own besides the soundtrack.
 
 Gameplay BGM (Unwelcome School 8-Bit):
