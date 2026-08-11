@@ -3,6 +3,7 @@ name: Build
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
 
@@ -39,13 +40,63 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist/ETP
+          cp build/ETP dist/ETP/
+          cp -r build/assets dist/ETP/assets
+          (cd dist && zip -r ../etp-linux.zip ETP)
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist
+          cp -r build/ETP.app dist/
+          (cd dist && zip -r ../etp-macos.zip ETP.app)
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/ETP | Out-Null
+          Copy-Item build/Release/ETP.exe dist/ETP/
+          Copy-Item -Recurse build/Release/assets dist/ETP/assets
+          Compress-Archive -Path dist/ETP -DestinationPath etp-windows.zip
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: etp-${{ matrix.name }}
           path: |
-            build/Release/ETP.exe
-            build/ETP
-            build/ETP.app/
-            build/assets/
+            etp-linux.zip
+            etp-macos.zip
+            etp-windows.zip
           if-no-files-found: ignore
+
+  publish:
+    name: Publish to itch.io
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Install butler
+        run: |
+          curl -L -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d butler
+          chmod +x butler/butler
+          echo "$PWD/butler" >> "$GITHUB_PATH"
+
+      - name: Push builds to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          butler push artifacts/etp-Linux/etp-linux.zip arch-kun/etp-raylib:linux --userversion "$VERSION"
+          butler push artifacts/etp-macOS/etp-macos.zip arch-kun/etp-raylib:macos --userversion "$VERSION"
+          butler push artifacts/etp-Windows/etp-windows.zip arch-kun/etp-raylib:windows --userversion "$VERSION"
