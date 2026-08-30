@@ -31,37 +31,27 @@ Builds via CMake, Raylib is downloaded automatically, no manual install needed. 
 
 (`chmod +x build.sh` once, if needed.)
 
-On Linux, raylib's own build needs a few X11/OpenGL dev packages installed first:
+On Linux, raylib's own build needs some X11/Wayland/OpenGL dev packages
+installed first:
 
 ```bash
 # Debian / Ubuntu
-sudo apt install libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev
+sudo apt install libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev \
+                 libwayland-dev libxkbcommon-dev wayland-protocols
 
 # Fedora
-sudo dnf install libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel mesa-libGL-devel
+sudo dnf install libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel mesa-libGL-devel \
+                 wayland-devel libxkbcommon-devel wayland-protocols-devel
 
 # Arch
-sudo pacman -S libx11 libxrandr libxinerama libxcursor libxi mesa
+sudo pacman -S libx11 libxrandr libxinerama libxcursor libxi mesa \
+               wayland libxkbcommon wayland-protocols
 ```
 
-That's all you need, by default the game runs fine under Wayland too, via XWayland. If you'd rather build with native Wayland support, install these on top of the X11 packages above, then pass the `wayland` flag to the build script:
-
-```bash
-# Debian / Ubuntu
-sudo apt install libwayland-dev libxkbcommon-dev wayland-protocols
-
-# Fedora
-sudo dnf install wayland-devel libxkbcommon-devel wayland-protocols-devel
-
-# Arch
-sudo pacman -S wayland libxkbcommon wayland-protocols
-```
-
-With Wayland:
-
-```bash
-./build.sh clean wayland run
-```
+Both display backends are always compiled in. GLFW picks between them at
+runtime and loads the display libraries dynamically, so a single binary runs
+natively under Wayland *and* under X11 — no XWayland, no build flag, and it
+still works on machines missing either set of libraries.
 
 ### Windows
 

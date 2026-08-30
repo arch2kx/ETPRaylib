@@ -41,13 +41,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
-            libxcursor-dev libxi-dev libxext-dev
+            libxcursor-dev libxi-dev libxext-dev \
+            libwayland-dev libxkbcommon-dev wayland-protocols
 
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release --parallel
+
+      # raylib defaults GLFW_BUILD_WAYLAND to OFF, so an X11-only build is
+      # the silent failure mode here - it still works, just via XWayland.
+      # GLFW dlopens both, so check the library names it will reach for.
+      - name: Verify both display backends (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          for lib in libwayland-client.so.0 libX11.so.6 libxkbcommon.so.0; do
+            if ! strings build/ETP | grep -qx "$lib"; then
+              echo "::error::$lib missing - GLFW was not built with both backends"
+              exit 1
+            fi
+            echo "ok: $lib"
+          done
 
       # The archives are packed flat - contents at the root, not nested in an
       # ETP/ folder. butler unpacks the zip and treats its root as the build

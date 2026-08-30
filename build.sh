@@ -7,10 +7,9 @@ set -euo pipefail
 #   ./build.sh             Configure (if needed) and build
 #   ./build.sh clean       Wipe build/ and do a full rebuild
 #                          (needed after CMakeLists.txt changes, e.g. the
-#                          app icon, the OUTPUT_NAME, or toggling wayland)
+#                          app icon or the OUTPUT_NAME)
 #   ./build.sh run         Build, then launch the result
-#   ./build.sh wayland     Build raylib with native Wayland support (Linux)
-#   ./build.sh clean wayland run
+#   ./build.sh clean run
 #
 # Multiple arguments can be combined in any order.
 
@@ -19,16 +18,14 @@ BUILD_DIR="${SCRIPT_DIR}/build"
 
 CLEAN=false
 RUN=false
-WAYLAND=false
 
 for arg in "$@"; do
     case "$arg" in
         clean)   CLEAN=true ;;
         run)     RUN=true ;;
-        wayland) WAYLAND=true ;;
         *)
             echo "Unknown argument: $arg"
-            echo "Usage: $0 [clean] [run] [wayland]"
+            echo "Usage: $0 [clean] [run]"
             exit 1
             ;;
     esac
@@ -43,9 +40,6 @@ mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
 CMAKE_ARGS=()
-if [[ "$WAYLAND" == true ]]; then
-    CMAKE_ARGS+=("-DETP_USE_WAYLAND=ON")
-fi
 
 echo "Configuring..."
 cmake .. "${CMAKE_ARGS[@]}"
