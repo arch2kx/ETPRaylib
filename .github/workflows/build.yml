@@ -6,6 +6,15 @@ on:
     tags: ['v*']
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      channel_suffix:
+        description: >-
+          Push to test channels instead of the live ones, e.g. "-test" sends
+          builds to linux-test / windows-test / macos-test. Leave empty to
+          only build without publishing.
+        required: false
+        default: '-test'
 
 jobs:
   build:
@@ -32,7 +41,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
-            libxcursor-dev libxi-dev libxext-dev
+            libxcursor-dev libxi-dev libxext-dev \
+            libwayland-dev libxkbcommon-dev wayland-protocols
 
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
@@ -40,29 +50,96 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      # raylib defaults GLFW_BUILD_WAYLAND to OFF, so an X11-only build is
+      # the silent failure mode here - it still works, just via XWayland.
+      # GLFW dlopens both, so check the library names it will reach for.
+      - name: Verify both display backends (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          for lib in libwayland-client.so.0 libX11.so.6 libxkbcommon.so.0; do
+            if ! strings build/ETP | grep -qx "$lib"; then
+              echo "::error::$lib missing - GLFW was not built with both backends"
+              exit 1
+            fi
+            echo "ok: $lib"
+          done
+
+      # The archives are packed flat - contents at the root, not nested in an
+      # ETP/ folder. butler unpacks the zip and treats its root as the build
+      # root, and .itch.toml is only honoured there.
+
       - name: Package (Linux)
         if: runner.os == 'Linux'
         run: |
-          mkdir -p dist/ETP
-          cp build/ETP dist/ETP/
-          cp -r build/assets dist/ETP/assets
-          (cd dist && zip -r ../etp-linux.zip ETP)
+          mkdir -p dist
+          cp build/ETP dist/
+          cp -r build/assets dist/assets
+          cp assets/mikaIcon.png dist/icon.png
+          cp packaging/linux/.itch.toml packaging/linux/README.txt dist/
+          cp packaging/linux/play.sh packaging/linux/install-shortcut.sh dist/
+          chmod +x dist/ETP dist/play.sh dist/install-shortcut.sh
+          (cd dist && zip -r ../etp-linux.zip .)
 
       - name: Package (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p dist
           cp -r build/ETP.app dist/
-          (cd dist && zip -r ../etp-macos.zip ETP.app)
+          cp packaging/macos/.itch.toml packaging/macos/README.txt dist/
+          # Drag-to-install target for people who download the zip directly.
+          # Excluded from the butler push, where it's meaningless.
+          ln -s /Applications dist/Applications
+          # -y stores the symlink as a symlink instead of following it
+          (cd dist && zip -ry ../etp-macos.zip .)
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist/ETP | Out-Null
-          Copy-Item build/Release/ETP.exe dist/ETP/
-          Copy-Item -Recurse build/Release/assets dist/ETP/assets
-          Compress-Archive -Path dist/ETP -DestinationPath etp-windows.zip
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item build/Release/ETP.exe dist/
+          Copy-Item -Recurse build/Release/assets dist/assets
+          Copy-Item packaging/windows/.itch.toml dist/
+          Copy-Item packaging/windows/README.txt dist/
+          Copy-Item packaging/windows/install-shortcut.ps1 dist/
+          Copy-Item "packaging/windows/Install Shortcut.bat" dist/
+          Compress-Archive -Path dist/* -DestinationPath etp-windows.zip
+
+      # The runner is a real Windows box, so the shortcut installer can be
+      # exercised for real rather than only reasoned about. Runs against the
+      # packaged dist/, i.e. exactly what a user downloads.
+      - name: Smoke test shortcut installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          ETP_NO_PAUSE: '1'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Eden Treaty Pandemonium.lnk'
+          $menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Eden Treaty Pandemonium.lnk'
+
+          & 'dist\Install Shortcut.bat'
+          if (-not (Test-Path $lnk))  { throw "Desktop shortcut was not created" }
+          if (-not (Test-Path $menu)) { throw "Start Menu shortcut was not created" }
+
+          # A shortcut that exists but points at the wrong place still fails
+          # the user, so read it back and check where it aims.
+          $shell = New-Object -ComObject WScript.Shell
+          $read = $shell.CreateShortcut($lnk)
+          $wantExe = (Resolve-Path 'dist/ETP.exe').Path
+          $wantDir = (Resolve-Path 'dist').Path
+          if ($read.TargetPath -ne $wantExe) {
+            throw "TargetPath was '$($read.TargetPath)', expected '$wantExe'"
+          }
+          if ($read.WorkingDirectory.TrimEnd('\') -ne $wantDir.TrimEnd('\')) {
+            throw "WorkingDirectory was '$($read.WorkingDirectory)', expected '$wantDir'"
+          }
+
+          & 'dist\Install Shortcut.bat' -Remove
+          if (Test-Path $lnk)  { throw "Desktop shortcut survived -Remove" }
+          if (Test-Path $menu) { throw "Start Menu shortcut survived -Remove" }
+
+          Write-Host "Shortcut installer verified: create, target, workdir, remove."
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -77,7 +154,11 @@ jobs:
   publish:
     name: Publish to itch.io
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Tags publish to the live channels; a manual run publishes only if you
+    # gave it a channel suffix, so an empty suffix means "just build".
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.channel_suffix != '')
     runs-on: ubuntu-latest
     steps:
       - name: Download build artifacts
@@ -95,8 +176,33 @@ jobs:
       - name: Push builds to itch.io
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          SUFFIX: ${{ inputs.channel_suffix }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          butler push artifacts/etp-Linux/etp-linux.zip arch-kun/etp-raylib:linux --userversion "$VERSION"
-          butler push artifacts/etp-macOS/etp-macos.zip arch-kun/etp-raylib:macos --userversion "$VERSION"
-          butler push artifacts/etp-Windows/etp-windows.zip arch-kun/etp-raylib:windows --userversion "$VERSION"
+          set -euo pipefail
+
+          # Tag runs use the tag as the version; manual test runs get the
+          # commit so repeated pushes stay distinguishable.
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0-${GITHUB_SHA::7}"
+          fi
+
+          GAME=arch-kun/etp-raylib
+          # --if-changed skips a no-op build if a tag gets re-run.
+          # --fix-permissions is a safety net on the Linux executable bit.
+          PUSH=(butler push --if-changed --fix-permissions --userversion "$VERSION")
+
+          "${PUSH[@]}" artifacts/etp-Linux/etp-linux.zip     "${GAME}:linux${SUFFIX}"
+          "${PUSH[@]}" artifacts/etp-Windows/etp-windows.zip "${GAME}:windows${SUFFIX}"
+          # The Applications symlink is a drag-to-install affordance for the
+          # raw zip only - the itch app installs the .app itself.
+          "${PUSH[@]}" --ignore Applications \
+            artifacts/etp-macOS/etp-macos.zip "${GAME}:macos${SUFFIX}"
+
+          # Echo what actually landed on each channel, so a typo'd channel
+          # name is visible in the log instead of silently creating a new one.
+          for ch in linux windows macos; do
+            echo "--- ${GAME}:${ch}${SUFFIX} ---"
+            butler status "${GAME}:${ch}${SUFFIX}"
+          done

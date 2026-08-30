@@ -18,14 +18,14 @@ FetchContent_Declare(
 # Suppress raylib's own examples/games from being built
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-# Native Wayland support (Linux only). Off by default - raylib/GLFW falls
-# back to XWayland automatically, which works fine without any of this.
-# Enable with: cmake -B build -DETP_USE_WAYLAND=ON
-# Requires: wayland-protocols, libwayland-dev (or distro equivalent) and
-# libxkbcommon-dev - see README. Do a clean rebuild after toggling this.
-option(ETP_USE_WAYLAND "Build raylib with native Wayland support" OFF)
-if(ETP_USE_WAYLAND AND UNIX AND NOT APPLE)
-    set(USE_WAYLAND ON CACHE BOOL "" FORCE)
+# Build GLFW with both display backends on Linux. GLFW 3.4 picks between
+# them at runtime and dlopens the display libraries, so one binary runs
+# natively on Wayland and on X11, and still works if either set of
+# libraries is absent. raylib defaults GLFW_BUILD_WAYLAND to OFF, which
+# would leave us on XWayland under a Wayland session.
+if(UNIX AND NOT APPLE)
+    set(GLFW_BUILD_X11     ON CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_WAYLAND ON CACHE BOOL "" FORCE)
 endif()
 
 FetchContent_MakeAvailable(raylib)

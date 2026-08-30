@@ -31,37 +31,27 @@ Builds via CMake, Raylib is downloaded automatically, no manual install needed. 
 
 (`chmod +x build.sh` once, if needed.)
 
-On Linux, raylib's own build needs a few X11/OpenGL dev packages installed first:
+On Linux, raylib's own build needs some X11/Wayland/OpenGL dev packages
+installed first:
 
 ```bash
 # Debian / Ubuntu
-sudo apt install libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev
+sudo apt install libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev \
+                 libwayland-dev libxkbcommon-dev wayland-protocols
 
 # Fedora
-sudo dnf install libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel mesa-libGL-devel
+sudo dnf install libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel mesa-libGL-devel \
+                 wayland-devel libxkbcommon-devel wayland-protocols-devel
 
 # Arch
-sudo pacman -S libx11 libxrandr libxinerama libxcursor libxi mesa
+sudo pacman -S libx11 libxrandr libxinerama libxcursor libxi mesa \
+               wayland libxkbcommon wayland-protocols
 ```
 
-That's all you need, by default the game runs fine under Wayland too, via XWayland. If you'd rather build with native Wayland support, install these on top of the X11 packages above, then pass the `wayland` flag to the build script:
-
-```bash
-# Debian / Ubuntu
-sudo apt install libwayland-dev libxkbcommon-dev wayland-protocols
-
-# Fedora
-sudo dnf install wayland-devel libxkbcommon-devel wayland-protocols-devel
-
-# Arch
-sudo pacman -S wayland libxkbcommon wayland-protocols
-```
-
-With Wayland:
-
-```bash
-./build.sh clean wayland run
-```
+Both display backends are always compiled in. GLFW picks between them at
+runtime and loads the display libraries dynamically, so a single binary runs
+natively under Wayland *and* under X11 — no XWayland, no build flag, and it
+still works on machines missing either set of libraries.
 
 ### Windows
 
@@ -86,7 +76,27 @@ cmake --build build
 
 - **macOS** — bundled as `ETP.app` with a generated `.icns`
 - **Windows** — embedded into `ETP.exe` via a generated `.ico` (needs ImageMagick's `magick`/`convert` on `PATH`; drop your own `assets/mikaIcon.ico` instead if you'd rather supply one)
-- **Linux** — no icon is installed automatically. Run `./install-desktop-icon.sh` for an app-menu entry, or `./install-desktop-icon.sh desktop` to also place an icon on your Desktop folder
+- **Linux** — no icon is installed automatically. Run `./install-shortcut.sh` for an app-menu entry, or `./install-shortcut.sh desktop` to also place an icon on your Desktop folder (`./install-shortcut.sh remove` undoes it)
+
+## Releases
+
+Pushing a `v*` tag builds all three platforms and publishes them to itch.io
+via butler, to the `linux` / `windows` / `macos` channels.
+
+Each download is packed flat — the game, `assets/`, a `.itch.toml` manifest so
+the itch app knows what to launch, and a shortcut installer:
+
+- **Linux** — `./play.sh` to run, `./install-shortcut.sh` for a menu entry
+- **Windows** — `ETP.exe` to run, `Install Shortcut.bat` for Start Menu/Desktop
+- **macOS** — drag `ETP.app` onto the bundled `Applications` symlink
+
+To rehearse a release without touching the live channels, run the workflow
+manually from the Actions tab and leave the channel suffix at `-test`; it
+publishes to `linux-test` and friends instead. An empty suffix builds only.
+
+`packaging/` holds those per-platform files. The repo-root `install-shortcut.sh`
+is a symlink to `packaging/linux/install-shortcut.sh` — one script that finds
+the binary either next to itself (in a download) or in `build/` (in a checkout).
 
 ## Notes
 I made this program primarily to learn how game programming works with different languages. I had an original pygame version but this one is much better. Also, I updated this game to be cross-platform and less confusing, hooray!
