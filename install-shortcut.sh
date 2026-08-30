@@ -1,0 +1,1 @@
+packaging/linux/install-shortcut.sh

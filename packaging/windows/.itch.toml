@@ -1,0 +1,8 @@
+# Tells the itch app exactly what to launch, instead of letting it guess
+# among the files in the install folder. Must sit at the top level of the
+# build.
+
+[[actions]]
+name = "play"
+path = "ETP.exe"
+icon = "play"

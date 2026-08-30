@@ -1,0 +1,18 @@
+# Tells the itch app exactly what to launch, instead of letting it guess
+# among the files in the install folder. Must sit at the top level of the
+# build - which is why the Linux archive is flat rather than nesting
+# everything under an ETP/ folder.
+#
+# This points at play.sh rather than ETP directly so the game always starts
+# with its working directory next to assets/, no matter how it was invoked.
+
+[[actions]]
+name = "play"
+path = "play.sh"
+icon = "play"
+
+[[actions]]
+name = "Install menu shortcut"
+path = "install-shortcut.sh"
+icon = "star"
+console = true

@@ -86,7 +86,27 @@ cmake --build build
 
 - **macOS** — bundled as `ETP.app` with a generated `.icns`
 - **Windows** — embedded into `ETP.exe` via a generated `.ico` (needs ImageMagick's `magick`/`convert` on `PATH`; drop your own `assets/mikaIcon.ico` instead if you'd rather supply one)
-- **Linux** — no icon is installed automatically. Run `./install-desktop-icon.sh` for an app-menu entry, or `./install-desktop-icon.sh desktop` to also place an icon on your Desktop folder
+- **Linux** — no icon is installed automatically. Run `./install-shortcut.sh` for an app-menu entry, or `./install-shortcut.sh desktop` to also place an icon on your Desktop folder (`./install-shortcut.sh remove` undoes it)
+
+## Releases
+
+Pushing a `v*` tag builds all three platforms and publishes them to itch.io
+via butler, to the `linux` / `windows` / `macos` channels.
+
+Each download is packed flat — the game, `assets/`, a `.itch.toml` manifest so
+the itch app knows what to launch, and a shortcut installer:
+
+- **Linux** — `./play.sh` to run, `./install-shortcut.sh` for a menu entry
+- **Windows** — `ETP.exe` to run, `Install Shortcut.bat` for Start Menu/Desktop
+- **macOS** — drag `ETP.app` onto the bundled `Applications` symlink
+
+To rehearse a release without touching the live channels, run the workflow
+manually from the Actions tab and leave the channel suffix at `-test`; it
+publishes to `linux-test` and friends instead. An empty suffix builds only.
+
+`packaging/` holds those per-platform files. The repo-root `install-shortcut.sh`
+is a symlink to `packaging/linux/install-shortcut.sh` — one script that finds
+the binary either next to itself (in a download) or in `build/` (in a checkout).
 
 ## Notes
 I made this program primarily to learn how game programming works with different languages. I had an original pygame version but this one is much better. Also, I updated this game to be cross-platform and less confusing, hooray!
