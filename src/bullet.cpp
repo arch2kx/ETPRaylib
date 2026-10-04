@@ -1,5 +1,6 @@
 #include "bullet.hpp"
 #include "visuals.hpp"
+#include "det.hpp"
 #include <cmath>
 
 Bullet::Bullet(float x, float y, float direction, float speed,
@@ -8,8 +9,8 @@ Bullet::Bullet(float x, float y, float direction, float speed,
       type(type), texture(tex), active(true) {}
 
 void Bullet::Update(float dt) {
-    x += std::cos(direction) * speed * dt;
-    y += std::sin(direction) * speed * dt;
+    x += det::Cos(direction) * speed * dt;
+    y += det::Sin(direction) * speed * dt;
 }
 
 void Bullet::Draw() const {

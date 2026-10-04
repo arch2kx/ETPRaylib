@@ -1,5 +1,6 @@
 #include "player.hpp"
 #include "visuals.hpp"
+#include "det.hpp"
 
 Player::Player()
     : texture{}, bulletTexture{}, healthBarTex{},
@@ -13,28 +14,28 @@ Player::Player(Texture2D tex, Texture2D bulletTex, Texture2D healthTex, float sp
     speed(360.0f * speedMult), shootTimer(0.0f), shootCooldown(0.2f), bulletCount(bulletCount),
     health(100), maxHealth(100) {}
 
-void Player::Update(float dt, std::vector<Bullet>& playerBullets) {
-    if (IsKeyDown(KEY_LEFT)  && x > 0)                         x -= speed * dt;
-    if (IsKeyDown(KEY_RIGHT) && x + SPRITE_SIZE < 800)         x += speed * dt;
-    if (IsKeyDown(KEY_UP)    && y > 0)                         y -= speed * dt;
-    if (IsKeyDown(KEY_DOWN)  && y + SPRITE_SIZE < 600)         y += speed * dt;
+void Player::Update(float dt, const InputState& in, std::vector<Bullet>& playerBullets) {
+    if (in.left  && x > 0)                         x -= speed * dt;
+    if (in.right && x + SPRITE_SIZE < 800)         x += speed * dt;
+    if (in.up    && y > 0)                         y -= speed * dt;
+    if (in.down  && y + SPRITE_SIZE < 600)         y += speed * dt;
 
     shootTimer += dt;
-    if (IsKeyDown(KEY_SPACE) && shootTimer >= shootCooldown) {
-        float bx = x + SPRITE_SIZE / 2.0f - bulletTexture.width  / 2.0f;
+    if (in.shoot && shootTimer >= shootCooldown) {
+        float bx = x + SPRITE_SIZE / 2.0f - BULLET_SIZE / 2.0f;
         float by = y;
         if (bulletCount > 1) {
             // Fan bulletCount shots evenly across a fixed cone width, wider
             // fans for more bullets so density stays roughly consistent.
-            const float spreadRad = (6.0f * bulletCount) * (PI / 180.0f);
+            const float spreadRad = (6.0f * bulletCount) * (det::PI_F / 180.0f);
             for (int i = 0; i < bulletCount; i++) {
                 float t   = (float)i / (bulletCount - 1) - 0.5f;  // -0.5..0.5 across the fan
-                float dir = -(PI / 2.0f) + t * spreadRad;         // centered straight up
+                float dir = -(det::HALF_PI_F) + t * spreadRad;         // centered straight up
                 playerBullets.emplace_back(bx, by, dir, 600.0f,
                                            BulletType::FRIENDLY, bulletTexture);
             }
         } else {
-            playerBullets.emplace_back(bx, by, -(PI / 2.0f), 600.0f,
+            playerBullets.emplace_back(bx, by, -(det::HALF_PI_F), 600.0f,
                                        BulletType::FRIENDLY, bulletTexture);
         }
         shootTimer = 0.0f;

@@ -121,6 +121,22 @@ jobs:
           fi
           echo "ok: within GLIBC_2.35"
 
+      - name: Determinism test
+        shell: bash
+        run: |
+          cmake --build build --target determinism_test --parallel --config Release
+          bin=./build/determinism_test
+          [ -x "$bin" ] || bin=./build/Release/determinism_test.exe
+          # Runs headless - no window, no GL context, no display needed.
+          "$bin" "hash-${{ matrix.name }}.txt"
+          cat "hash-${{ matrix.name }}.txt"
+
+      - name: Upload determinism hashes
+        uses: actions/upload-artifact@v4
+        with:
+          name: hash-${{ matrix.name }}
+          path: hash-${{ matrix.name }}.txt
+
       # The archives are packed flat - contents at the root, not nested in an
       # ETP/ folder. butler unpacks the zip and treats its root as the build
       # root, and .itch.toml is only honoured there.
@@ -207,6 +223,41 @@ jobs:
             etp-macos.zip
             etp-windows.zip
           if-no-files-found: ignore
+
+  determinism-crossplatform:
+    name: Cross-platform determinism
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: hash-*
+          path: hashes
+          merge-multiple: true
+
+      - name: Compare hashes across platforms
+        run: |
+          set -euo pipefail
+          ls -1 hashes
+          for f in hashes/*.txt; do echo "--- $f"; cat "$f"; done
+          # Replay verification only works if every platform computes the
+          # same simulation, so the files must be byte-identical.
+          first=""
+          status=0
+          for f in hashes/*.txt; do
+            if [ -z "$first" ]; then first="$f"; continue; fi
+            # --strip-trailing-cr: the Windows runner writes CRLF, which is
+            # not a simulation difference.
+            if ! diff -q --strip-trailing-cr "$first" "$f" > /dev/null; then
+              echo "::error::$f differs from $first - simulation is not cross-platform deterministic"
+              diff --strip-trailing-cr "$first" "$f" || true
+              status=1
+            fi
+          done
+          if [ "$status" -eq 0 ]; then
+            echo "All platforms agree - replay verification is viable."
+          fi
+          exit "$status"
 
   publish:
     name: Publish to itch.io

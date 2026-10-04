@@ -111,6 +111,12 @@ if(WIN32)
     endif()
 endif()
 
+if(NOT MSVC)
+    add_compile_options(-ffp-contract=off -fno-fast-math)
+else()
+    add_compile_options(/fp:precise)
+endif()
+
 add_executable(etp
     src/main.cpp
     src/player.cpp
@@ -120,6 +126,7 @@ add_executable(etp
     src/sniper.cpp
     src/ar.cpp
     src/game.cpp
+    src/score_store.cpp
     ${APP_ICON_ICNS}
     ${APP_ICON_RC}
 )
@@ -172,3 +179,16 @@ add_custom_command(TARGET etp POST_BUILD
             $<TARGET_FILE_DIR:etp>/assets
     COMMENT "Copying assets to build directory"
 )
+
+add_executable(determinism_test EXCLUDE_FROM_ALL
+    tests/determinism_test.cpp
+    src/player.cpp
+    src/bullet.cpp
+    src/enemy.cpp
+    src/boss.cpp
+    src/sniper.cpp
+    src/ar.cpp
+    src/game.cpp
+)
+target_link_libraries(determinism_test PRIVATE raylib)
+target_include_directories(determinism_test PRIVATE src)

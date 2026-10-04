@@ -1,17 +1,30 @@
 #include "game.hpp"
+#include <cstring>
 #include "paths.hpp"
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
 #include <cmath>
 
-Game::Game(DifficultySettings settings, bool endless)
-    : score(0), killCount(0), loopCount(0), endlessMode(endless),
+Game::Game(DifficultySettings settings, bool endless, uint64_t seed, bool headless)
+    : headless(headless), rng(seed), simTime(0.0f), score(0), killCount(0), loopCount(0), endlessMode(endless),
       difficulty(1.0f), spawnTimer(0.0f),
       spawnDelay(1.5f * settings.spawnDelayMult),
       bossSpawned(false), gameOver(false), gameWon(false),
       phase2Active(false), phase3Active(false), missedEnemyCount(0), settings(settings) {
-    srand((unsigned)time(nullptr));
+
+    // Headless runs (the determinism test, and the replay verifier) have no
+    // GL context, so loading textures would crash. The simulation does not
+    // read texture data - only the renderer does - so leaving them zeroed is
+    // safe as long as Draw() is never called.
+    if (headless) {
+        bgTexture = playerTex = enemyTex = bossTex = Texture2D{};
+        friendlyBulletTex = enemyBulletTex = sniperTex = arTex = healthBarTex = Texture2D{};
+        font = Font{};
+        player = Player(playerTex, friendlyBulletTex, healthBarTex,
+                        settings.playerSpeedMult, settings.playerBulletCount);
+        return;
+    }
 
     bgTexture         = LoadTexture(AssetPath("backgroundGehenna.png").c_str());
     playerTex         = LoadTexture(AssetPath("mikaPlayer.png").c_str());
@@ -28,6 +41,7 @@ Game::Game(DifficultySettings settings, bool endless)
 }
 
 Game::~Game() {
+    if (headless) return;
     UnloadTexture(bgTexture);
     UnloadTexture(playerTex);
     UnloadTexture(enemyTex);
@@ -43,10 +57,11 @@ Game::~Game() {
 // Custom color(s)
 constexpr Color CUSTOM_TEXT_BLUE = { 37, 42, 74, 255 };
 
-void Game::Update(float dt) {
+void Game::Update(float dt, const InputState& in) {
     if (gameOver || gameWon) return;
 
-    player.Update(dt, playerBullets);
+    simTime += dt;
+    player.Update(dt, in, playerBullets);
 
     // Spawn enemies until boss appears
     if (!bossSpawned) {
@@ -65,7 +80,7 @@ void Game::Update(float dt) {
         }
     }
 
-    for (auto& e : enemies) e.Update(dt, enemyBullets);
+    for (auto& e : enemies) e.Update(dt, simTime, enemyBullets);
 
     if (boss) {
         Rectangle pr = player.GetRect();
@@ -220,9 +235,53 @@ void Game::CheckCollisions() {
     }
 }
 
+
+static inline void HashF(uint64_t& h, float v) {
+    uint32_t bits;
+    std::memcpy(&bits, &v, sizeof(bits));
+    for (int i = 0; i < 4; i++) {
+        h ^= (uint8_t)(bits >> (i * 8));
+        h *= 1099511628211ULL;
+    }
+}
+
+static inline void HashI(uint64_t& h, long long v) {
+    for (int i = 0; i < 8; i++) {
+        h ^= (uint8_t)(v >> (i * 8));
+        h *= 1099511628211ULL;
+    }
+}
+
+uint64_t Game::StateHash() const {
+    uint64_t h = 1469598103934665603ULL;
+    HashI(h, score);
+    HashI(h, killCount);
+    HashI(h, loopCount);
+    HashI(h, missedEnemyCount);
+    HashI(h, player.health);
+    HashI(h, gameOver ? 1 : 0);
+    HashI(h, gameWon ? 1 : 0);
+    HashI(h, bossSpawned ? 1 : 0);
+    HashF(h, difficulty);
+    HashF(h, spawnTimer);
+    HashF(h, simTime);
+    Rectangle pr = player.GetRect();
+    HashF(h, pr.x); HashF(h, pr.y);
+    HashI(h, (long long)enemies.size());
+    for (const auto& e : enemies) { Rectangle r = e.GetRect(); HashF(h, r.x); HashF(h, r.y); }
+    HashI(h, (long long)playerBullets.size());
+    for (const auto& b : playerBullets) { Rectangle r = b.GetRect(); HashF(h, r.x); HashF(h, r.y); }
+    HashI(h, (long long)enemyBullets.size());
+    for (const auto& b : enemyBullets) { Rectangle r = b.GetRect(); HashF(h, r.x); HashF(h, r.y); }
+    HashI(h, (long long)snipers.size());
+    HashI(h, (long long)ar.size());
+    HashI(h, (long long)rng.State());
+    return h;
+}
+
 void Game::SpawnEnemy() {
-    float x = 50.0f + (float)(rand() % 700);
-    enemies.emplace_back(x, (int)difficulty, settings.enemySpeedMult, enemyTex, enemyBulletTex);
+    float x = 50.0f + (float)rng.Range(700);
+    enemies.emplace_back(x, (int)difficulty, settings.enemySpeedMult, enemyTex, enemyBulletTex, rng);
 }
 
 void Game::SpawnSnipers() {
@@ -315,7 +374,9 @@ bool Game::IsGameOver() const { return gameOver; }
 bool Game::IsGameWon()  const { return gameWon; }
 int  Game::GetScore()   const { return score; }
 
-void Game::Reset(DifficultySettings newSettings, bool endless) {
+void Game::Reset(DifficultySettings newSettings, bool endless, uint64_t seed) {
+    rng.Seed(seed);
+    simTime     = 0.0f;
     enemies.clear();
     playerBullets.clear();
     enemyBullets.clear();
