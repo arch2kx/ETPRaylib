@@ -259,7 +259,22 @@ jobs:
 
           # Echo what actually landed on each channel, so a typo'd channel
           # name is visible in the log instead of silently creating a new one.
+          # push returns once the upload finishes, while the build is still
+          # processing server-side, so a channel can briefly not exist yet.
           for ch in linux windows macos; do
-            echo "--- ${GAME}:${ch}${SUFFIX} ---"
-            butler status "${GAME}:${ch}${SUFFIX}"
+            target="${GAME}:${ch}${SUFFIX}"
+            echo "--- ${target} ---"
+            for attempt in 1 2 3 4 5 6; do
+              out=$(butler status "$target" 2>&1) || true
+              if ! grep -q "No channel" <<<"$out"; then
+                echo "$out"
+                break
+              fi
+              if [ "$attempt" -eq 6 ]; then
+                echo "::warning::${target} still not visible after waiting; check the itch.io dashboard"
+                echo "$out"
+                break
+              fi
+              sleep 10
+            done
           done
