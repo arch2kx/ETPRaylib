@@ -29,7 +29,7 @@ static uint64_t RunOnce(uint64_t seed, const std::vector<uint8_t>& inputs, int* 
     return h;
 }
 
-int main() {
+int main(int argc, char** argv) {
     SetTraceLogLevel(LOG_ERROR);
     InitWindow(64, 64, "det");
     const int TICKS = 120 * 60;
@@ -52,6 +52,20 @@ int main() {
     uint64_t ha = RunOnce(1234, ia, &sa);
     uint64_t hb = RunOnce(5678, ia, &sb);
     printf("different seeds diverge: %s\n", ha != hb ? "yes" : "NO (suspicious)");
+
+    if (argc > 1) {
+        FILE* f = fopen(argv[1], "w");
+        if (f == nullptr) { printf("could not write %s\n", argv[1]); CloseWindow(); return 2; }
+        for (uint64_t seed : {1ULL, 42ULL, 99991ULL}) {
+            auto inputs = ScriptInputs(seed ^ 0xABCDEF, TICKS);
+            int sc = 0;
+            uint64_t h = RunOnce(seed, inputs, &sc);
+            fprintf(f, "seed=%llu score=%d hash=%016llx\n",
+                    (unsigned long long)seed, sc, (unsigned long long)h);
+        }
+        fclose(f);
+        printf("wrote %s\n", argv[1]);
+    }
 
     CloseWindow();
     printf("%s\n", fails == 0 ? "DETERMINISM OK" : "DETERMINISM BROKEN");
