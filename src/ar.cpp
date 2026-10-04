@@ -1,5 +1,6 @@
 #include "ar.hpp"
 #include "visuals.hpp"
+#include "det.hpp"
 #include <cmath>
 
 AR::AR(float x, Texture2D tex, Texture2D bulletTex, int hp, float shotCooldown)
@@ -47,7 +48,7 @@ void AR::Fire(std::vector<Bullet>& enemyBullets) {
     float dy = aimTargetY - cy;
     float dist = sqrtf(dx * dx + dy * dy);
     if (dist < 1.0f) dist = 1.0f;
-    float dir = atan2f(dy, dx);
+    float dir = det::Atan2(dy, dx);
 
     // AR volley: 5 bullets fanned out around the aimed direction, not one
     // shot, part of the assault rifle's abilities.

@@ -1,5 +1,6 @@
 #include "boss.hpp"
 #include "visuals.hpp"
+#include "det.hpp"
 #include <cmath>
 #include <vector>
 
@@ -51,13 +52,13 @@ void Boss::Fire(std::vector<Bullet>& enemyBullets,
 
     for (float angleOffset : angles) {
         float rad     = angleOffset * DEG2RAD;
-        float targetX = playerX + sinf(rad) * 100.0f;
-        float targetY = playerY + cosf(rad) * 100.0f;
+        float targetX = playerX + det::Sin(rad) * 100.0f;
+        float targetY = playerY + det::Cos(rad) * 100.0f;
         float dx      = targetX - cx;
         float dy      = targetY - cy;
         float dist    = sqrtf(dx * dx + dy * dy);
         if (dist < 1.0f) dist = 1.0f;
-        float dir = atan2f(dy, dx);
+        float dir = det::Atan2(dy, dx);
         enemyBullets.emplace_back(cx, cy, dir, bulletSpeed,
                                   BulletType::ENEMY, bulletTexture);
     }
@@ -67,7 +68,7 @@ void Boss::Fire(std::vector<Bullet>& enemyBullets,
         float dy   = playerY - cy;
         float dist = sqrtf(dx * dx + dy * dy);
         if (dist < 1.0f) dist = 1.0f;
-        float dir = atan2f(dy, dx);
+        float dir = det::Atan2(dy, dx);
         enemyBullets.emplace_back(cx, cy, dir, bulletSpeed,
                                   BulletType::ENEMY, bulletTexture);
     }

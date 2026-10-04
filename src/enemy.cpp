@@ -1,9 +1,10 @@
 #include "enemy.hpp"
 #include "visuals.hpp"
+#include "det.hpp"
 #include <cmath>
 #include <cstdlib>
 
-Enemy::Enemy(float x, int difficulty, float speedMult, Texture2D tex, Texture2D bulletTex)
+Enemy::Enemy(float x, int difficulty, float speedMult, Texture2D tex, Texture2D bulletTex, Rng& rng)
     : texture(tex), bulletTexture(bulletTex),
       x(x), y(-50.0f),
       speed((5.0f + difficulty * 0.8f) * 60.0f * speedMult),
@@ -12,7 +13,7 @@ Enemy::Enemy(float x, int difficulty, float speedMult, Texture2D tex, Texture2D 
       fireTimer(0.0f), active(true) {
 
     if (difficulty >= 3) {
-        int r = rand() % 3;
+        int r = rng.Range(3);
         if      (r == 0) movementPattern = MovementPattern::STRAIGHT;
         else if (r == 1) movementPattern = MovementPattern::ZIGZAG;
         else             movementPattern = MovementPattern::CIRCLE;
@@ -21,28 +22,28 @@ Enemy::Enemy(float x, int difficulty, float speedMult, Texture2D tex, Texture2D 
     }
 }
 
-void Enemy::Update(float dt, std::vector<Bullet>& enemyBullets) {
+void Enemy::Update(float dt, float simTime, std::vector<Bullet>& enemyBullets) {
     y += speed * dt;
 
     switch (movementPattern) {
         case MovementPattern::STRAIGHT:
             break;
         case MovementPattern::ZIGZAG:
-            x += 5.0f * sinf(GetTime() * 5.0f) * dt * 60.0f;
+            x += 5.0f * det::Sin(simTime * 5.0f) * dt * 60.0f;
             break;
         case MovementPattern::CIRCLE:
-            x += 10.0f * sinf(GetTime() * 10.0f) * dt * 60.0f;
+            x += 10.0f * det::Sin(simTime * 10.0f) * dt * 60.0f;
             break;
     }
 
     fireTimer += dt;
     if (fireTimer >= fireDelay) {
-        Fire(enemyBullets);
+        Fire(simTime, enemyBullets);
         fireTimer = 0.0f;
     }
 }
 
-void Enemy::Fire(std::vector<Bullet>& enemyBullets) {
+void Enemy::Fire(float simTime, std::vector<Bullet>& enemyBullets) {
     float cx  = x + SPRITE_SIZE / 2.0f;
     float cy  = y + SPRITE_SIZE;
     const float spd = 250.0f;
@@ -61,7 +62,7 @@ void Enemy::Fire(std::vector<Bullet>& enemyBullets) {
                                       BulletType::ENEMY, bulletTexture);
     } else {
         // Spiral burst: base angle rotates over time
-        float baseAngle = fmodf(GetTime() * 100.0f, 360.0f);
+        float baseAngle = det::Fmod(simTime * 100.0f, 360.0f);
         for (int i = 0; i < 8; i++) {
             float angle = (baseAngle + i * 45.0f) * DEG2RAD;
             enemyBullets.emplace_back(cx, cy, angle, spd,

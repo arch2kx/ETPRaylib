@@ -7,20 +7,23 @@
 #include "ar.hpp"
 #include "bullet.hpp"
 #include "difficulty.hpp"
+#include "input_state.hpp"
+#include "rng.hpp"
 #include <vector>
 #include <memory>
 
 class Game {
 public:
-    Game(DifficultySettings settings = DIFF_NORMAL, bool endless = false);
+    Game(DifficultySettings settings = DIFF_NORMAL, bool endless = false, uint64_t seed = 0);
     ~Game();
 
-    void Update(float dt);
+    void Update(float dt, const InputState& in);
     void Draw() const;
     bool IsGameOver() const;
     bool IsGameWon() const;
     int  GetScore() const;
-    void Reset(DifficultySettings settings = DIFF_NORMAL, bool endless = false);
+    uint64_t StateHash() const;
+    void Reset(DifficultySettings settings = DIFF_NORMAL, bool endless = false, uint64_t seed = 0);
 
 private:
     // Textures loaded once here, passed by value to entities (raylib textures are GPU handles)
@@ -45,6 +48,8 @@ private:
     bool                     phase2Active;
     bool                     phase3Active;
 
+    Rng   rng;
+    float simTime;
     int   score;
     int   killCount;
     int   loopCount;      // Endless mode: how many full boss->sniper->AR cycles cleared

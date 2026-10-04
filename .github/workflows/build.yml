@@ -45,7 +45,7 @@ jobs:
           sudo apt-get install -y \
             libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libxext-dev \
-            libwayland-dev libxkbcommon-dev wayland-protocols \
+            libwayland-dev libxkbcommon-dev wayland-protocols xvfb \
             meson ninja-build
 
       # 22.04 ships wayland-protocols 1.25, but GLFW 3.4 needs
@@ -120,6 +120,12 @@ jobs:
             exit 1
           fi
           echo "ok: within GLIBC_2.35"
+
+      - name: Determinism test (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cmake --build build --target determinism_test --parallel
+          xvfb-run -a ./build/determinism_test
 
       # The archives are packed flat - contents at the root, not nested in an
       # ETP/ folder. butler unpacks the zip and treats its root as the build

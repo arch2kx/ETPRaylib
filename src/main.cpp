@@ -3,6 +3,10 @@
 #include "game.hpp"
 #include "difficulty.hpp"
 #include "paths.hpp"
+#include "score_store.hpp"
+#include "det.hpp"
+#include "input_state.hpp"
+#include <cstdint>
 
 typedef enum GameScreen { LOGO = 0, TITLE, DIFFICULTY_SELECT, GAMEPLAY, ENDING, WIN } GameScreen;
 
@@ -66,16 +70,9 @@ int main() {
 
     SetTargetFPS(60);
 
-    // Load persisted high score (0 if no save file exists yet)
-    int highScore = 0;
-    {
-        std::string hsPath = SavePath("highscore.txt");
-        char* hsText = LoadFileText(hsPath.c_str());
-        if (hsText != nullptr) {
-            highScore = atoi(hsText);
-            UnloadFileText(hsText);
-        }
-    }
+    // Load persisted high score. Returns 0 if absent or if the stored
+    // digest doesn't match, so a hand-edited file resets rather than sticks.
+    int highScore = LoadHighScore(SavePath("highscore.txt"));
 
     // Braces ensure Game and textures are destroyed before CloseWindow()
     {
@@ -135,8 +132,12 @@ int main() {
         return 0;
     };
 
+    float simAccumulator = 0.0f;
+    uint64_t runSeed = 0;
+
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
+        if (dt > 0.25f) dt = 0.25f;
 
         if (musicZoneOf(currentScreen) != musicZoneOf(previousScreen)) {
             StopMusicStream(bgm);
@@ -172,24 +173,38 @@ int main() {
                 if (IsKeyPressed(KEY_UP))   selectedDiff = (selectedDiff + DIFF_COUNT - 1) % DIFF_COUNT;
                 if (IsKeyPressed(KEY_DOWN)) selectedDiff = (selectedDiff + 1) % DIFF_COUNT;
                 if (IsKeyPressed(KEY_ENTER)) {
-                    game.Reset(DIFF_LIST[selectedDiff], selectedDiff == ENDLESS_INDEX);
+                    runSeed = (uint64_t)(GetTime() * 1e6) ^ 0x9E3779B97F4A7C15ULL;
+                    game.Reset(DIFF_LIST[selectedDiff], selectedDiff == ENDLESS_INDEX, runSeed);
+                    simAccumulator = 0.0f;
                     currentScreen = GAMEPLAY;
                 }
                 break;
 
-            case GAMEPLAY:
-                game.Update(dt);
+            case GAMEPLAY: {
+                InputState in;
+                in.left  = IsKeyDown(KEY_LEFT);
+                in.right = IsKeyDown(KEY_RIGHT);
+                in.up    = IsKeyDown(KEY_UP);
+                in.down  = IsKeyDown(KEY_DOWN);
+                in.shoot = IsKeyDown(KEY_SPACE);
+
+                simAccumulator += dt;
+                while (simAccumulator >= det::FIXED_DT) {
+                    game.Update(det::FIXED_DT, in);
+                    simAccumulator -= det::FIXED_DT;
+                    if (game.IsGameOver() || game.IsGameWon()) break;
+                }
                 // Store the player's high score in a .txt file for persistent scoring.
                 if (game.IsGameOver() || game.IsGameWon()) {
                     if (game.GetScore() > highScore) {
                         highScore = game.GetScore();
-                        std::string hsPath = SavePath("highscore.txt");
-                        SaveFileText(hsPath.c_str(), (char*)TextFormat("%d", highScore));
+                        SaveHighScore(SavePath("highscore.txt"), highScore);
                     }
                 }
                 if (game.IsGameOver()) currentScreen = ENDING;
                 if (game.IsGameWon())  currentScreen = WIN;
                 break;
+            }
 
             case ENDING:
                 if (IsKeyPressed(KEY_ENTER)) {
@@ -197,7 +212,9 @@ int main() {
                     currentScreen = TITLE;
                 }
                 if (IsKeyPressed(KEY_R)) {
-                    game.Reset(DIFF_LIST[selectedDiff], selectedDiff == ENDLESS_INDEX);
+                    runSeed = (uint64_t)(GetTime() * 1e6) ^ 0x9E3779B97F4A7C15ULL;
+                    game.Reset(DIFF_LIST[selectedDiff], selectedDiff == ENDLESS_INDEX, runSeed);
+                    simAccumulator = 0.0f;
                     currentScreen = GAMEPLAY;
                 }
                 break;
@@ -208,7 +225,9 @@ int main() {
                     currentScreen = TITLE;
                 }
                 if (IsKeyPressed(KEY_R)) {
-                    game.Reset(DIFF_LIST[selectedDiff], selectedDiff == ENDLESS_INDEX);
+                    runSeed = (uint64_t)(GetTime() * 1e6) ^ 0x9E3779B97F4A7C15ULL;
+                    game.Reset(DIFF_LIST[selectedDiff], selectedDiff == ENDLESS_INDEX, runSeed);
+                    simAccumulator = 0.0f;
                     currentScreen = GAMEPLAY;
                 }
                 break;

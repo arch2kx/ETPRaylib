@@ -1,5 +1,6 @@
 #include "sniper.hpp"
 #include "visuals.hpp"
+#include "det.hpp"
 #include <cmath>
 
 Sniper::Sniper(float x, Texture2D tex, Texture2D bulletTex, int hp, float shotCooldown, bool spray)
@@ -57,7 +58,7 @@ void Sniper::Fire(std::vector<Bullet>& enemyBullets) {
     float dy = aimTargetY - cy;
     float dist = sqrtf(dx * dx + dy * dy);
     if (dist < 1.0f) dist = 1.0f;
-    float dir = atan2f(dy, dx);
+    float dir = det::Atan2(dy, dx);
     // Fast single bullet, part of the sniper.
     enemyBullets.emplace_back(cx, cy, dir, 500.0f, BulletType::ENEMY, bulletTexture);
 }
