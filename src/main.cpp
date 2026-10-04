@@ -6,6 +6,7 @@
 #include "score_store.hpp"
 #include "det.hpp"
 #include "input_state.hpp"
+#include "replay.hpp"
 #include <cstdint>
 
 typedef enum GameScreen { LOGO = 0, TITLE, DIFFICULTY_SELECT, GAMEPLAY, ENDING, WIN } GameScreen;
@@ -35,10 +36,6 @@ static void DrawCenteredTextBlock(Font font, const TextLine* lines, int count,
     }
 }
 
-const char* DIFF_NAMES[]              = { "EASY", "NORMAL", "HARD", "EXTREME", "ENDLESS" };
-const DifficultySettings DIFF_LIST[]  = { DIFF_EASY, DIFF_NORMAL, DIFF_HARD, DIFF_EXTREME, DIFF_ENDLESS };
-constexpr int DIFF_COUNT    = 5;
-constexpr int ENDLESS_INDEX = 4;
 
 constexpr Color CUSTOM_RED = { 240, 54, 21, 255 };
 constexpr Color CUSTOM_ORANGE = { 247, 95, 30, 255 };
@@ -134,6 +131,7 @@ int main() {
 
     float simAccumulator = 0.0f;
     uint64_t runSeed = 0;
+    Replay recording;
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
@@ -176,6 +174,10 @@ int main() {
                     runSeed = (uint64_t)(GetTime() * 1e6) ^ 0x9E3779B97F4A7C15ULL;
                     game.Reset(DIFF_LIST[selectedDiff], selectedDiff == ENDLESS_INDEX, runSeed);
                     simAccumulator = 0.0f;
+                    recording = Replay{};
+                    recording.seed            = runSeed;
+                    recording.difficultyIndex = (uint8_t)selectedDiff;
+                    recording.endless         = selectedDiff == ENDLESS_INDEX ? 1 : 0;
                     currentScreen = GAMEPLAY;
                 }
                 break;
@@ -190,6 +192,11 @@ int main() {
 
                 simAccumulator += dt;
                 while (simAccumulator >= det::FIXED_DT) {
+                    // Record before stepping: the verifier replays this exact
+                    // byte against this exact tick.
+                    if (recording.inputs.size() < REPLAY_MAX_TICKS) {
+                        recording.inputs.push_back(in.Pack());
+                    }
                     game.Update(det::FIXED_DT, in);
                     simAccumulator -= det::FIXED_DT;
                     if (game.IsGameOver() || game.IsGameWon()) break;
@@ -199,6 +206,10 @@ int main() {
                     if (game.GetScore() > highScore) {
                         highScore = game.GetScore();
                         SaveHighScore(SavePath("highscore.txt"), highScore);
+                        // Keep the replay for the best run only - it is what a
+                        // leaderboard submission would need to prove the score.
+                        recording.claimedScore = highScore;
+                        SaveReplay(SavePath("best.etprep"), recording);
                     }
                 }
                 if (game.IsGameOver()) currentScreen = ENDING;
@@ -215,6 +226,10 @@ int main() {
                     runSeed = (uint64_t)(GetTime() * 1e6) ^ 0x9E3779B97F4A7C15ULL;
                     game.Reset(DIFF_LIST[selectedDiff], selectedDiff == ENDLESS_INDEX, runSeed);
                     simAccumulator = 0.0f;
+                    recording = Replay{};
+                    recording.seed            = runSeed;
+                    recording.difficultyIndex = (uint8_t)selectedDiff;
+                    recording.endless         = selectedDiff == ENDLESS_INDEX ? 1 : 0;
                     currentScreen = GAMEPLAY;
                 }
                 break;
@@ -228,6 +243,10 @@ int main() {
                     runSeed = (uint64_t)(GetTime() * 1e6) ^ 0x9E3779B97F4A7C15ULL;
                     game.Reset(DIFF_LIST[selectedDiff], selectedDiff == ENDLESS_INDEX, runSeed);
                     simAccumulator = 0.0f;
+                    recording = Replay{};
+                    recording.seed            = runSeed;
+                    recording.difficultyIndex = (uint8_t)selectedDiff;
+                    recording.endless         = selectedDiff == ENDLESS_INDEX ? 1 : 0;
                     currentScreen = GAMEPLAY;
                 }
                 break;
