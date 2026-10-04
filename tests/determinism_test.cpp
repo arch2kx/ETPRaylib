@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
     printf("different seeds diverge: %s\n", ha != hb ? "yes" : "NO (suspicious)");
 
     if (argc > 1) {
-        FILE* f = fopen(argv[1], "w");
+        FILE* f = fopen(argv[1], "wb");
         if (f == nullptr) { printf("could not write %s\n", argv[1]); return 2; }
         for (uint64_t seed : {1ULL, 42ULL, 99991ULL}) {
             auto inputs = ScriptInputs(seed ^ 0xABCDEF, TICKS);
