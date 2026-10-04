@@ -14,7 +14,8 @@
 
 class Game {
 public:
-    Game(DifficultySettings settings = DIFF_NORMAL, bool endless = false, uint64_t seed = 0);
+    Game(DifficultySettings settings = DIFF_NORMAL, bool endless = false, uint64_t seed = 0,
+         bool headless = false);
     ~Game();
 
     void Update(float dt, const InputState& in);
@@ -48,6 +49,7 @@ private:
     bool                     phase2Active;
     bool                     phase3Active;
 
+    bool  headless;
     Rng   rng;
     float simTime;
     int   score;

@@ -6,12 +6,25 @@
 #include <ctime>
 #include <cmath>
 
-Game::Game(DifficultySettings settings, bool endless, uint64_t seed)
-    : rng(seed), simTime(0.0f), score(0), killCount(0), loopCount(0), endlessMode(endless),
+Game::Game(DifficultySettings settings, bool endless, uint64_t seed, bool headless)
+    : headless(headless), rng(seed), simTime(0.0f), score(0), killCount(0), loopCount(0), endlessMode(endless),
       difficulty(1.0f), spawnTimer(0.0f),
       spawnDelay(1.5f * settings.spawnDelayMult),
       bossSpawned(false), gameOver(false), gameWon(false),
       phase2Active(false), phase3Active(false), missedEnemyCount(0), settings(settings) {
+
+    // Headless runs (the determinism test, and the replay verifier) have no
+    // GL context, so loading textures would crash. The simulation does not
+    // read texture data - only the renderer does - so leaving them zeroed is
+    // safe as long as Draw() is never called.
+    if (headless) {
+        bgTexture = playerTex = enemyTex = bossTex = Texture2D{};
+        friendlyBulletTex = enemyBulletTex = sniperTex = arTex = healthBarTex = Texture2D{};
+        font = Font{};
+        player = Player(playerTex, friendlyBulletTex, healthBarTex,
+                        settings.playerSpeedMult, settings.playerBulletCount);
+        return;
+    }
 
     bgTexture         = LoadTexture(AssetPath("backgroundGehenna.png").c_str());
     playerTex         = LoadTexture(AssetPath("mikaPlayer.png").c_str());
@@ -28,6 +41,7 @@ Game::Game(DifficultySettings settings, bool endless, uint64_t seed)
 }
 
 Game::~Game() {
+    if (headless) return;
     UnloadTexture(bgTexture);
     UnloadTexture(playerTex);
     UnloadTexture(enemyTex);

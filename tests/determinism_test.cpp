@@ -18,7 +18,7 @@ static std::vector<uint8_t> ScriptInputs(uint64_t seed, int ticks) {
 }
 
 static uint64_t RunOnce(uint64_t seed, const std::vector<uint8_t>& inputs, int* outScore) {
-    Game g(DIFF_NORMAL, false, seed);
+    Game g(DIFF_NORMAL, false, seed, /*headless=*/true);
     uint64_t h = 0;
     for (size_t i = 0; i < inputs.size(); i++) {
         g.Update(det::FIXED_DT, InputState::Unpack(inputs[i]));
@@ -31,7 +31,6 @@ static uint64_t RunOnce(uint64_t seed, const std::vector<uint8_t>& inputs, int* 
 
 int main(int argc, char** argv) {
     SetTraceLogLevel(LOG_ERROR);
-    InitWindow(64, 64, "det");
     const int TICKS = 120 * 60;
     int fails = 0;
 
@@ -55,7 +54,7 @@ int main(int argc, char** argv) {
 
     if (argc > 1) {
         FILE* f = fopen(argv[1], "w");
-        if (f == nullptr) { printf("could not write %s\n", argv[1]); CloseWindow(); return 2; }
+        if (f == nullptr) { printf("could not write %s\n", argv[1]); return 2; }
         for (uint64_t seed : {1ULL, 42ULL, 99991ULL}) {
             auto inputs = ScriptInputs(seed ^ 0xABCDEF, TICKS);
             int sc = 0;
@@ -67,7 +66,6 @@ int main(int argc, char** argv) {
         printf("wrote %s\n", argv[1]);
     }
 
-    CloseWindow();
     printf("%s\n", fails == 0 ? "DETERMINISM OK" : "DETERMINISM BROKEN");
     return fails;
 }
