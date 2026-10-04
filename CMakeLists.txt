@@ -127,6 +127,7 @@ add_executable(etp
     src/ar.cpp
     src/game.cpp
     src/score_store.cpp
+    src/replay.cpp
     ${APP_ICON_ICNS}
     ${APP_ICON_RC}
 )
@@ -179,6 +180,34 @@ add_custom_command(TARGET etp POST_BUILD
             $<TARGET_FILE_DIR:etp>/assets
     COMMENT "Copying assets to build directory"
 )
+
+add_executable(make_replay EXCLUDE_FROM_ALL
+    tests/make_replay.cpp
+    src/replay.cpp
+    src/player.cpp
+    src/bullet.cpp
+    src/enemy.cpp
+    src/boss.cpp
+    src/sniper.cpp
+    src/ar.cpp
+    src/game.cpp
+)
+target_link_libraries(make_replay PRIVATE raylib)
+target_include_directories(make_replay PRIVATE src)
+
+add_executable(verify_replay EXCLUDE_FROM_ALL
+    tools/verify_replay.cpp
+    src/replay.cpp
+    src/player.cpp
+    src/bullet.cpp
+    src/enemy.cpp
+    src/boss.cpp
+    src/sniper.cpp
+    src/ar.cpp
+    src/game.cpp
+)
+target_link_libraries(verify_replay PRIVATE raylib)
+target_include_directories(verify_replay PRIVATE src)
 
 add_executable(determinism_test EXCLUDE_FROM_ALL
     tests/determinism_test.cpp

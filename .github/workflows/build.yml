@@ -131,6 +131,33 @@ jobs:
           "$bin" "hash-${{ matrix.name }}.txt"
           cat "hash-${{ matrix.name }}.txt"
 
+      - name: Replay verification test
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build build --target make_replay verify_replay --parallel --config Release
+          mk=./build/make_replay;   [ -x "$mk" ] || mk=./build/Release/make_replay.exe
+          vf=./build/verify_replay; [ -x "$vf" ] || vf=./build/Release/verify_replay.exe
+
+          "$mk" good.etprep 4242
+          echo "--- honest replay must be accepted"
+          "$vf" good.etprep
+
+          echo "--- inflated score must be rejected"
+          "$mk" cheat.etprep 4242 50000
+          if "$vf" cheat.etprep; then
+            echo "::error::verifier accepted an inflated score"
+            exit 1
+          fi
+
+          echo "--- garbage must be rejected"
+          echo "not a replay" > junk.etprep
+          if "$vf" junk.etprep; then
+            echo "::error::verifier accepted a non-replay file"
+            exit 1
+          fi
+          echo "replay verification behaves correctly"
+
       - name: Upload determinism hashes
         uses: actions/upload-artifact@v4
         with:

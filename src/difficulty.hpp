@@ -56,3 +56,12 @@ inline const DifficultySettings DIFF_EXTREME = { 1.8f, 0.4f, 0.15f,  50, true,  
 // as loopCount (shown as WAVE in the HUD) climbs.
 inline const DifficultySettings DIFF_ENDLESS = { 1.5f, 0.8f, 0.06f, 200, true,  true,   60,
 300.0f, 0.6f,  true,  false, 2, 1.8f,  5,  7, 1.3f, 5,  6, 1.4f, 6,  true,  true,  false };
+
+// The difficulty table lives here rather than in main.cpp so the replay
+// verifier can resolve a replay's difficulty index without pulling in the
+// renderer. Appending is safe; reordering invalidates stored replays, so it
+// requires a GAMEPLAY_VERSION bump.
+inline const char* const DIFF_NAMES[] = { "EASY", "NORMAL", "HARD", "EXTREME", "ENDLESS" };
+inline const DifficultySettings DIFF_LIST[] = { DIFF_EASY, DIFF_NORMAL, DIFF_HARD, DIFF_EXTREME, DIFF_ENDLESS };
+constexpr int DIFF_COUNT    = 5;
+constexpr int ENDLESS_INDEX = 4;
