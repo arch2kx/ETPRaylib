@@ -22,7 +22,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          # 22.04 rather than latest: the binary then needs only glibc 2.35,
+          # which covers Ubuntu 22.04, Debian 12 and everything newer. Building
+          # on a current runner raises the floor to 2.38 and locks those out.
+          - os: ubuntu-22.04
             name: Linux
           - os: macos-latest
             name: macOS
@@ -42,10 +45,38 @@ jobs:
           sudo apt-get install -y \
             libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libxext-dev \
-            libwayland-dev libxkbcommon-dev wayland-protocols
+            libwayland-dev libxkbcommon-dev wayland-protocols \
+            meson ninja-build
+
+      # 22.04 ships wayland-protocols 1.25, but GLFW 3.4 needs
+      # fractional-scale-v1.xml, added in 1.31. The package is just XML plus a
+      # .pc file, so installing a newer one is cheap and keeps the glibc floor.
+      - name: Install newer wayland-protocols (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          ver=1.36
+          curl -fsSL -o wp.tar.xz \
+            "https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/${ver}/downloads/wayland-protocols-${ver}.tar.xz"
+          tar xf wp.tar.xz
+          meson setup wp-build "wayland-protocols-${ver}" --prefix=/usr/local
+          sudo meson install -C wp-build
+          echo "PKG_CONFIG_PATH=/usr/local/share/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        shell: bash
+        run: |
+          # macos-latest is arm64, so a default build leaves Intel Macs with
+          # a binary they cannot run. Build both slices into one universal
+          # app; the deployment target keeps the x86_64 slice usable on the
+          # older Macs that are the reason for building it at all.
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            cmake -B build -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+              -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          else
+            cmake -B build -DCMAKE_BUILD_TYPE=Release
+          fi
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -63,6 +94,32 @@ jobs:
             fi
             echo "ok: $lib"
           done
+
+      - name: Verify universal binary (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          archs=$(lipo -archs build/ETP.app/Contents/MacOS/ETP)
+          echo "archs: $archs"
+          for want in x86_64 arm64; do
+            case " $archs " in
+              *" $want "*) echo "ok: $want" ;;
+              *) echo "::error::$want slice missing - not a universal binary"; exit 1 ;;
+            esac
+          done
+
+      - name: Verify glibc floor (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          # The highest GLIBC_ symbol version the binary references is the
+          # oldest distro it can run on. Keep it at or below 2.35.
+          max=$(objdump -T build/ETP | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -uV | tail -1)
+          echo "requires $max"
+          lowest=$(printf '%s\nGLIBC_2.35\n' "$max" | sort -uV | tail -1)
+          if [ "$lowest" != "GLIBC_2.35" ]; then
+            echo "::error::binary needs $max, above the GLIBC_2.35 floor"
+            exit 1
+          fi
+          echo "ok: within GLIBC_2.35"
 
       # The archives are packed flat - contents at the root, not nested in an
       # ETP/ folder. butler unpacks the zip and treats its root as the build
